@@ -1116,6 +1116,31 @@ describe('processMCPEnv', () => {
     });
   });
 
+  it('should process LIBRECHAT_USER_GROUPID in MCP headers', () => {
+    const user = createTestUser({
+      id: 'user-123',
+      groupId: '507f1f77bcf86cd799439011,507f191e810c19729de860ea',
+    });
+
+    const options: MCPOptions = {
+      type: 'sse',
+      url: 'https://mcp.example.com/sse',
+      headers: {
+        'X-User-Groups': '{{LIBRECHAT_USER_GROUPID}}',
+      },
+    };
+
+    const result = processMCPEnv({ options, user });
+
+    expect(result).toEqual({
+      type: 'sse',
+      url: 'https://mcp.example.com/sse',
+      headers: {
+        'X-User-Groups': '507f1f77bcf86cd799439011,507f191e810c19729de860ea',
+      },
+    });
+  });
+
   it('should process custom user variables', () => {
     const customUserVars = {
       CUSTOM_TOKEN: 'user-specific-token',

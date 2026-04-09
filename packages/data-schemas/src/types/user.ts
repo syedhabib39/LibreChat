@@ -50,6 +50,11 @@ export interface IUser extends Document {
   updatedAt?: Date;
   /** Field for external source identification (for consistency with TPrincipal schema) */
   idOnTheSource?: string;
+  /**
+   * Comma-separated LibreChat group `_id` values for the user; set at runtime for MCP
+   * placeholder `{{LIBRECHAT_USER_GROUPID}}` (not persisted on the User document).
+   */
+  groupId?: string;
   tenantId?: string;
   federatedTokens?: OIDCTokens;
   openidTokens?: OIDCTokens;

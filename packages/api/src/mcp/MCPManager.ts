@@ -17,6 +17,7 @@ import { MCPConnectionFactory } from './MCPConnectionFactory';
 import { preProcessGraphTokens } from '~/utils/graph';
 import { formatToolContent } from './parsers';
 import { MCPConnection } from './connection';
+import { enrichUserForMcp } from '~/mcp/groupid';
 import { processMCPEnv } from '~/utils/env';
 import { isUserSourced } from './utils';
 
@@ -337,8 +338,9 @@ Please follow these instructions when using tools from the respective MCP server
             graphTokenResolver,
             scopes: process.env.GRAPH_API_SCOPES,
           });
+      const userForMcpEnv = await enrichUserForMcp(user);
       const currentOptions = processMCPEnv({
-        user,
+        user: userForMcpEnv,
         body: requestBody,
         dbSourced: isDbSourced,
         options: graphProcessedConfig,

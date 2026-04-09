@@ -10,6 +10,9 @@ import { processMCPEnv } from '~/utils';
 
 jest.mock('~/mcp/connection');
 jest.mock('~/mcp/oauth');
+jest.mock('~/mcp/groupid', () => ({
+  enrichMcpConnectionUserOptions: jest.fn(async (opts: unknown) => opts),
+}));
 jest.mock('~/utils');
 jest.mock('@librechat/data-schemas', () => ({
   logger: {

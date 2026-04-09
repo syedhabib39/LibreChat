@@ -10,6 +10,7 @@ import { PENDING_STALE_MS, normalizeExpiresAt } from '~/flow/manager';
 import { sanitizeUrlForLogging } from './utils';
 import { withTimeout } from '~/utils/promise';
 import { MCPConnection } from './connection';
+import { enrichMcpConnectionUserOptions } from '~/mcp/groupid';
 import { processMCPEnv } from '~/utils';
 
 export interface ToolDiscoveryResult {
@@ -45,9 +46,10 @@ export class MCPConnectionFactory {
   /** Creates a new MCP connection with optional OAuth support */
   static async create(
     basic: t.BasicConnectionOptions,
-    oauth?: t.OAuthConnectionOptions,
+    options?: t.OAuthConnectionOptions | t.UserConnectionContext,
   ): Promise<MCPConnection> {
-    const factory = new this(basic, oauth);
+    const resolved = await enrichMcpConnectionUserOptions(options);
+    const factory = new this(basic, resolved);
     return factory.createConnection();
   }
 
@@ -60,11 +62,12 @@ export class MCPConnectionFactory {
     basic: t.BasicConnectionOptions,
     options?: Omit<t.OAuthConnectionOptions, 'returnOnOAuth'> | t.UserConnectionContext,
   ): Promise<ToolDiscoveryResult> {
-    if (options != null && 'useOAuth' in options) {
-      const factory = new this(basic, { ...options, returnOnOAuth: true });
+    const resolved = await enrichMcpConnectionUserOptions(options);
+    if (resolved != null && 'useOAuth' in resolved) {
+      const factory = new this(basic, { ...resolved, returnOnOAuth: true });
       return factory.discoverToolsInternal();
     }
-    const factory = new this(basic, options);
+    const factory = new this(basic, resolved);
     return factory.discoverToolsInternal();
   }
 

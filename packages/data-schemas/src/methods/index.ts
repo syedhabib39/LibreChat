@@ -209,6 +209,8 @@ export function createMethods(
   };
 }
 
+export { createUserGroupMethods } from './userGroup';
+
 export type {
   UserMethods,
   SessionMethods,

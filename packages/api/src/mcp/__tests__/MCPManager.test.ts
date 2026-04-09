@@ -29,6 +29,10 @@ jest.mock('~/utils/env', () => ({
   processMCPEnv: jest.fn((params) => params.options),
 }));
 
+jest.mock('~/mcp/groupid', () => ({
+  enrichUserForMcp: jest.fn(async (user: unknown) => user),
+}));
+
 const mockRegistryInstance = {
   getServerConfig: jest.fn(),
   getAllServerConfigs: jest.fn(),
