@@ -20,7 +20,7 @@ import type { MCPOAuthTokens } from './oauth/types';
 import type * as t from './types';
 import { createSSRFSafeUndiciConnect, resolveHostnameSSRF } from '~/auth';
 import { runOutsideTracing } from '~/utils/tracing';
-import { sanitizeUrlForLogging } from './utils';
+import { debugMcpFetchMerge, debugMcpHeaders, sanitizeUrlForLogging } from './utils';
 import { withTimeout } from '~/utils/promise';
 import { mcpConfig } from './mcpConfig';
 
@@ -370,12 +370,22 @@ export class MCPConnection extends EventEmitter {
 
   setRequestHeaders(headers: Record<string, string> | null): void {
     if (!headers) {
+      logger.debug('[MCP][headers] setRequestHeaders skipped (null)', {
+        serverName: this.serverName,
+        userId: this.userId,
+      });
       return;
     }
+    debugMcpHeaders(`connection:setRequestHeaders raw server=${this.serverName}`, headers, {
+      userId: this.userId,
+    });
     const normalizedHeaders: Record<string, string> = {};
     for (const [key, value] of Object.entries(headers)) {
       normalizedHeaders[key.toLowerCase()] = value;
     }
+    debugMcpHeaders(`connection:setRequestHeaders lowercased server=${this.serverName}`, normalizedHeaders, {
+      userId: this.userId,
+    });
     this.requestHeaders = normalizedHeaders;
   }
 
@@ -428,6 +438,7 @@ export class MCPConnection extends EventEmitter {
     getHeaders: () => Record<string, string> | null | undefined,
     timeout?: number,
     sseBodyTimeout?: number,
+    fetchDebugMeta?: { serverName: string; userId?: string; transport: string },
   ): (input: UndiciRequestInfo, init?: UndiciRequestInit) => Promise<UndiciResponse> {
     const ssrfConnect = this.useSSRFProtection ? createSSRFSafeUndiciConnect() : undefined;
     const connectOpts = ssrfConnect != null ? { connect: ssrfConnect } : {};
@@ -458,6 +469,23 @@ export class MCPConnection extends EventEmitter {
 
       const requestHeaders = getHeaders();
       if (!requestHeaders) {
+        const methodEarly = (init?.method ?? 'GET').toUpperCase();
+        if (fetchDebugMeta) {
+          let urlForLog: string;
+          if (typeof input === 'string') {
+            urlForLog = sanitizeUrlForLogging(input);
+          } else if (input instanceof URL) {
+            urlForLog = sanitizeUrlForLogging(input);
+          } else {
+            urlForLog = sanitizeUrlForLogging(input.url);
+          }
+          logger.debug(`[MCP][fetch-merge] ${fetchDebugMeta.transport} no dynamic headers`, {
+            serverName: fetchDebugMeta.serverName,
+            userId: fetchDebugMeta.userId,
+            method: methodEarly,
+            url: urlForLog,
+          });
+        }
         return undiciFetch(input, { ...init, redirect: 'manual', dispatcher });
       }
 
@@ -470,6 +498,21 @@ export class MCPConnection extends EventEmitter {
         } else {
           initHeaders = init.headers as Record<string, string>;
         }
+      }
+
+      const method = (init?.method ?? 'GET').toUpperCase();
+      if (fetchDebugMeta) {
+        debugMcpFetchMerge(
+          `${fetchDebugMeta.transport} merge`,
+          {
+            serverName: fetchDebugMeta.serverName,
+            userId: fetchDebugMeta.userId,
+          },
+          method,
+          input,
+          initHeaders,
+          requestHeaders,
+        );
       }
 
       return undiciFetch(input, {
@@ -595,12 +638,21 @@ export class MCPConnection extends EventEmitter {
                 }
                 const dynamicHeaders = this.getRequestHeaders() ?? {};
                 /** Defaults < transport init < config headers < setRequestHeaders (tool-call refresh) */
-                const fetchHeaders = new Headers({
+                const mergedObject = {
                   ...SSE_REQUEST_HEADERS,
                   ...initHeaderRecord,
                   ...headers,
                   ...dynamicHeaders,
-                });
+                };
+                debugMcpFetchMerge(
+                  'sse EventSource GET',
+                  { serverName: this.serverName, userId: this.userId },
+                  (init?.method ?? 'GET').toUpperCase(),
+                  url,
+                  { ...SSE_REQUEST_HEADERS, ...initHeaderRecord, ...headers },
+                  dynamicHeaders,
+                );
+                const fetchHeaders = new Headers(mergedObject);
                 return undiciFetch(url, {
                   ...init,
                   redirect: 'manual',
@@ -612,6 +664,8 @@ export class MCPConnection extends EventEmitter {
             fetch: this.createFetchFunction(
               this.getRequestHeaders.bind(this),
               sseTimeout,
+              undefined,
+              { serverName: this.serverName, userId: this.userId, transport: 'sse' },
             ) as unknown as FetchLike,
           });
 
@@ -650,6 +704,11 @@ export class MCPConnection extends EventEmitter {
               this.getRequestHeaders.bind(this),
               this.timeout,
               this.sseReadTimeout || DEFAULT_SSE_READ_TIMEOUT,
+              {
+                serverName: this.serverName,
+                userId: this.userId,
+                transport: 'streamable-http',
+              },
             ) as unknown as FetchLike,
           });
 

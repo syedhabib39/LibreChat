@@ -7,7 +7,7 @@ import type { FlowStateManager } from '~/flow/manager';
 import type * as t from './types';
 import { MCPTokenStorage, MCPOAuthHandler, ReauthenticationRequiredError } from '~/mcp/oauth';
 import { PENDING_STALE_MS, normalizeExpiresAt } from '~/flow/manager';
-import { sanitizeUrlForLogging } from './utils';
+import { debugMcpHeaders, sanitizeUrlForLogging } from './utils';
 import { withTimeout } from '~/utils/promise';
 import { MCPConnection } from './connection';
 import { enrichMcpConnectionUserOptions } from '~/mcp/groupid';
@@ -199,6 +199,12 @@ export class MCPConnectionFactory {
       options: basic.serverConfig,
       customUserVars: options?.customUserVars,
     });
+    if ('headers' in this.serverConfig && this.serverConfig.headers) {
+      debugMcpHeaders(`factory:serverConfig-after-processMCPEnv server=${basic.serverName}`, this.serverConfig.headers, {
+        dbSourced: basic.dbSourced,
+        userId: options?.user?.id ?? null,
+      });
+    }
     this.serverName = basic.serverName;
     this.useSSRFProtection = basic.useSSRFProtection === true;
     this.allowedDomains = basic.allowedDomains;

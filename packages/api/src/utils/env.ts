@@ -2,6 +2,7 @@ import { extractEnvVariable } from 'librechat-data-provider';
 import type { MCPOptions } from 'librechat-data-provider';
 import type { IUser } from '@librechat/data-schemas';
 import type { RequestBody } from '~/types';
+import { debugMcpHeaders } from '~/mcp/utils';
 import { extractOpenIDTokenInfo, processOpenIDPlaceholders, isOpenIDTokenValid } from './oidc';
 
 /**
@@ -352,6 +353,13 @@ export function processMCPEnv(params: {
   // Process headers if they exist (for WebSocket, SSE, StreamableHTTP types)
   // Note: `env` and `headers` are on different branches of the MCPOptions union type.
   if ('headers' in newObj && newObj.headers) {
+    debugMcpHeaders('processMCPEnv:before', newObj.headers as Record<string, string>, {
+      dbSourced,
+      userId: user?.id ?? null,
+      userFieldKeys: user ? Object.keys(user).sort() : [],
+      hasGroupIdOnUser: Boolean(user && 'groupId' in user),
+      groupIdLen: typeof user?.groupId === 'string' ? user.groupId.length : null,
+    });
     const processedHeaders: Record<string, string> = {};
     for (const [key, originalValue] of Object.entries(newObj.headers)) {
       processedHeaders[key] = processSingleValue({
@@ -364,6 +372,10 @@ export function processMCPEnv(params: {
       });
     }
     newObj.headers = processedHeaders;
+    debugMcpHeaders('processMCPEnv:after', processedHeaders, {
+      dbSourced,
+      userId: user?.id ?? null,
+    });
   }
 
   // Process URL if it exists (for WebSocket, SSE, StreamableHTTP types)

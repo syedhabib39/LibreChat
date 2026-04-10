@@ -18,6 +18,7 @@ import { preProcessGraphTokens } from '~/utils/graph';
 import { formatToolContent } from './parsers';
 import { MCPConnection } from './connection';
 import { enrichUserForMcp } from '~/mcp/groupid';
+import { debugMcpHeaders } from '~/mcp/utils';
 import { processMCPEnv } from '~/utils/env';
 import { isUserSourced } from './utils';
 
@@ -339,6 +340,16 @@ Please follow these instructions when using tools from the respective MCP server
             scopes: process.env.GRAPH_API_SCOPES,
           });
       const userForMcpEnv = await enrichUserForMcp(user);
+      logger.debug(`${logPrefix}[${toolName}] callTool: env pipeline`, {
+        isDbSourced,
+        userId,
+        enrichedHasGroupId:
+          Boolean(userForMcpEnv && 'groupId' in userForMcpEnv) &&
+          typeof userForMcpEnv?.groupId === 'string',
+        enrichedGroupIdLen:
+          typeof userForMcpEnv?.groupId === 'string' ? userForMcpEnv.groupId.length : null,
+        customUserVarKeys: customUserVars ? Object.keys(customUserVars).sort() : [],
+      });
       const currentOptions = processMCPEnv({
         user: userForMcpEnv,
         body: requestBody,
@@ -347,7 +358,17 @@ Please follow these instructions when using tools from the respective MCP server
         customUserVars,
       });
       if ('headers' in currentOptions) {
+        debugMcpHeaders(`callTool:setRequestHeaders server=${serverName}`, currentOptions.headers, {
+          toolName,
+          userId,
+          isDbSourced,
+        });
         connection.setRequestHeaders(currentOptions.headers || {});
+      } else {
+        logger.debug(`${logPrefix}[${toolName}] callTool: no headers on processed config`, {
+          isDbSourced,
+          optionKeys: currentOptions && typeof currentOptions === 'object' ? Object.keys(currentOptions).sort() : [],
+        });
       }
 
       const result = await connection.client.request(
