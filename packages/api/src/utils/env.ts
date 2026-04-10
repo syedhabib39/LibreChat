@@ -266,6 +266,37 @@ function processSingleValue({
   return value;
 }
 
+const MCP_DEFAULT_USER_GROUPS_HEADER = 'x-user-groups';
+
+/**
+ * Sets `x-user-groups` on URL-based MCP options when `user.groupId` is a non-empty string
+ * (comma-separated Group `_id` values from MCP user enrichment). Does not require librechat.yaml;
+ * overwrites any configured value for that header when enrichment produced a CSV.
+ */
+function mergeDefaultMcpUserGroupsHeader(
+  newObj: MCPOptions,
+  user?: Partial<IUser>,
+): void {
+  if (!user?.id) {
+    return;
+  }
+  const raw =
+    typeof user.groupId === 'string' && user.groupId.trim().length > 0
+      ? user.groupId.trim()
+      : '';
+  if (!raw) {
+    return;
+  }
+  if (!('url' in newObj)) {
+    return;
+  }
+  const o = newObj as { headers?: Record<string, string> };
+  if (!o.headers) {
+    o.headers = {};
+  }
+  o.headers[MCP_DEFAULT_USER_GROUPS_HEADER] = raw;
+}
+
 /**
  * Recursively processes an object to replace environment variables in string values
  * @param params - Processing parameters
@@ -372,10 +403,6 @@ export function processMCPEnv(params: {
       });
     }
     newObj.headers = processedHeaders;
-    debugMcpHeaders('processMCPEnv:after', processedHeaders, {
-      dbSourced,
-      userId: user?.id ?? null,
-    });
   }
 
   // Process URL if it exists (for WebSocket, SSE, StreamableHTTP types)
@@ -408,6 +435,14 @@ export function processMCPEnv(params: {
       }
     }
     newObj.oauth = processedOAuth;
+  }
+
+  mergeDefaultMcpUserGroupsHeader(newObj, user);
+  if ('headers' in newObj && newObj.headers) {
+    debugMcpHeaders('processMCPEnv:after', newObj.headers as Record<string, string>, {
+      dbSourced,
+      userId: user?.id ?? null,
+    });
   }
 
   return newObj;

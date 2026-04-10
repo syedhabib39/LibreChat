@@ -1141,6 +1141,58 @@ describe('processMCPEnv', () => {
     });
   });
 
+  it('injects x-user-groups by default for URL MCP when user.groupId is set (no yaml line required)', () => {
+    const user = createTestUser({
+      id: 'user-123',
+      groupId: '507f1f77bcf86cd799439011,507f191e810c19729de860ea',
+    });
+    const options: MCPOptions = {
+      type: 'sse',
+      url: 'https://mcp.example.com/sse',
+      headers: {
+        'X-User-Id': '{{LIBRECHAT_USER_ID}}',
+      },
+    };
+    const result = processMCPEnv({ options, user });
+    expect(result).toMatchObject({
+      type: 'sse',
+      url: 'https://mcp.example.com/sse',
+      headers: {
+        'x-user-id': 'user-123',
+        'x-user-groups': '507f1f77bcf86cd799439011,507f191e810c19729de860ea',
+      },
+    });
+  });
+
+  it('injects x-user-groups when URL MCP has no headers in config', () => {
+    const user = createTestUser({
+      id: 'user-123',
+      groupId: '507f1f77bcf86cd799439011',
+    });
+    const options: MCPOptions = {
+      type: 'sse',
+      url: 'https://mcp.example.com/sse',
+    };
+    const result = processMCPEnv({ options, user });
+    expect(result).toMatchObject({
+      type: 'sse',
+      headers: {
+        'x-user-groups': '507f1f77bcf86cd799439011',
+      },
+    });
+  });
+
+  it('does not add x-user-groups for stdio MCP', () => {
+    const user = createTestUser({ id: 'user-123', groupId: '507f1f77bcf86cd799439011' });
+    const options: MCPOptions = {
+      type: 'stdio',
+      command: 'mcp-server',
+      args: [],
+    };
+    const result = processMCPEnv({ options, user });
+    expect((result as { headers?: Record<string, string> }).headers).toBeUndefined();
+  });
+
   it('should process custom user variables', () => {
     const customUserVars = {
       CUSTOM_TOKEN: 'user-specific-token',
