@@ -16,20 +16,11 @@ function getUserGroupMethods() {
 
 async function loadGroupIdsCsv(userId: string): Promise<string> {
   if (mongoose.connection.readyState !== 1) {
-    logger.debug('[MCP][groupId] skip DB lookup: mongoose not connected', {
-      userId,
-      readyState: mongoose.connection.readyState,
-    });
     return '';
   }
   const now = Date.now();
   const cached = groupIdCsvByUserId.get(userId);
   if (cached && now - cached.cachedAt < GROUP_ID_CACHE_MS) {
-    logger.debug('[MCP][groupId] cache hit', {
-      userId,
-      ageMs: now - cached.cachedAt,
-      csvLen: cached.value.length,
-    });
     return cached.value;
   }
   try {
@@ -42,11 +33,6 @@ async function loadGroupIdsCsv(userId: string): Promise<string> {
       getUserGroupMethods().findGroupsByMemberId(userId),
     );
     const value = groups.map((g: IGroup) => String(g._id)).join(',');
-    logger.debug('[MCP][groupId] findGroupsByMemberId (runAsSystem)', {
-      userId,
-      groupCount: groups.length,
-      csvLen: value.length,
-    });
     groupIdCsvByUserId.set(userId, { value, cachedAt: now });
     return value;
   } catch (error) {
@@ -61,17 +47,9 @@ async function loadGroupIdsCsv(userId: string): Promise<string> {
  */
 export async function enrichUserForMcp(user?: IUser): Promise<IUser | undefined> {
   if (!user?.id) {
-    logger.debug('[MCP][groupId] enrichUserForMcp skipped: no user.id', {
-      hasUser: Boolean(user),
-    });
     return user;
   }
   const groupId = await loadGroupIdsCsv(user.id);
-  logger.debug('[MCP][groupId] enrichUserForMcp done', {
-    userId: user.id,
-    hasIdOnTheSource: Boolean(user.idOnTheSource),
-    groupIdCsvLen: groupId.length,
-  });
   return { ...user, groupId };
 }
 
@@ -79,7 +57,6 @@ export async function enrichMcpConnectionUserOptions<
   T extends { user?: IUser } | undefined,
 >(options?: T): Promise<T | undefined> {
   if (!options?.user?.id) {
-    logger.debug('[MCP][groupId] enrichMcpConnectionUserOptions skipped: no options.user.id');
     return options;
   }
   const user = await enrichUserForMcp(options.user);

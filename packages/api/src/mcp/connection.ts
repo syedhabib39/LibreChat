@@ -20,12 +20,7 @@ import type { MCPOAuthTokens } from './oauth/types';
 import type * as t from './types';
 import { createSSRFSafeUndiciConnect, resolveHostnameSSRF } from '~/auth';
 import { runOutsideTracing } from '~/utils/tracing';
-import {
-  debugMcpFetchMerge,
-  debugMcpHeaders,
-  mergeMcpHttpHeaders,
-  sanitizeUrlForLogging,
-} from './utils';
+import { mergeMcpHttpHeaders, sanitizeUrlForLogging } from './utils';
 import { withTimeout } from '~/utils/promise';
 import { mcpConfig } from './mcpConfig';
 
@@ -295,7 +290,6 @@ export class MCPConnection extends EventEmitter {
 
   public static clearCooldown(serverName: string): void {
     MCPConnection.circuitBreakers.delete(serverName);
-    logger.debug(`[MCP][${serverName}] Circuit breaker state cleared`);
   }
 
   private getCircuitBreaker(): CircuitBreakerState {
@@ -375,22 +369,12 @@ export class MCPConnection extends EventEmitter {
 
   setRequestHeaders(headers: Record<string, string> | null): void {
     if (!headers) {
-      logger.debug('[MCP][headers] setRequestHeaders skipped (null)', {
-        serverName: this.serverName,
-        userId: this.userId,
-      });
       return;
     }
-    debugMcpHeaders(`connection:setRequestHeaders raw server=${this.serverName}`, headers, {
-      userId: this.userId,
-    });
     const normalizedHeaders: Record<string, string> = {};
     for (const [key, value] of Object.entries(headers)) {
       normalizedHeaders[key.toLowerCase()] = value;
     }
-    debugMcpHeaders(`connection:setRequestHeaders lowercased server=${this.serverName}`, normalizedHeaders, {
-      userId: this.userId,
-    });
     this.requestHeaders = normalizedHeaders;
   }
 
@@ -443,7 +427,6 @@ export class MCPConnection extends EventEmitter {
     getHeaders: () => Record<string, string> | null | undefined,
     timeout?: number,
     sseBodyTimeout?: number,
-    fetchDebugMeta?: { serverName: string; userId?: string; transport: string },
   ): (input: UndiciRequestInfo, init?: UndiciRequestInit) => Promise<UndiciResponse> {
     const ssrfConnect = this.useSSRFProtection ? createSSRFSafeUndiciConnect() : undefined;
     const connectOpts = ssrfConnect != null ? { connect: ssrfConnect } : {};
@@ -474,23 +457,6 @@ export class MCPConnection extends EventEmitter {
 
       const requestHeaders = getHeaders();
       if (!requestHeaders) {
-        const methodEarly = (init?.method ?? 'GET').toUpperCase();
-        if (fetchDebugMeta) {
-          let urlForLog: string;
-          if (typeof input === 'string') {
-            urlForLog = sanitizeUrlForLogging(input);
-          } else if (input instanceof URL) {
-            urlForLog = sanitizeUrlForLogging(input);
-          } else {
-            urlForLog = sanitizeUrlForLogging(input.url);
-          }
-          logger.debug(`[MCP][fetch-merge] ${fetchDebugMeta.transport} no dynamic headers`, {
-            serverName: fetchDebugMeta.serverName,
-            userId: fetchDebugMeta.userId,
-            method: methodEarly,
-            url: urlForLog,
-          });
-        }
         return undiciFetch(input, { ...init, redirect: 'manual', dispatcher });
       }
 
@@ -503,21 +469,6 @@ export class MCPConnection extends EventEmitter {
         } else {
           initHeaders = init.headers as Record<string, string>;
         }
-      }
-
-      const method = (init?.method ?? 'GET').toUpperCase();
-      if (fetchDebugMeta) {
-        debugMcpFetchMerge(
-          `${fetchDebugMeta.transport} merge`,
-          {
-            serverName: fetchDebugMeta.serverName,
-            userId: fetchDebugMeta.userId,
-          },
-          method,
-          input,
-          initHeaders,
-          requestHeaders,
-        );
       }
 
       return undiciFetch(input, {
@@ -646,14 +597,6 @@ export class MCPConnection extends EventEmitter {
                   headers,
                   dynamicHeaders,
                 );
-                debugMcpFetchMerge(
-                  'sse EventSource GET',
-                  { serverName: this.serverName, userId: this.userId },
-                  (init?.method ?? 'GET').toUpperCase(),
-                  url,
-                  mergeMcpHttpHeaders(SSE_REQUEST_HEADERS, initHeaderRecord, headers),
-                  dynamicHeaders,
-                );
                 const fetchHeaders = new Headers(mergedObject);
                 return undiciFetch(url, {
                   ...init,
@@ -667,7 +610,6 @@ export class MCPConnection extends EventEmitter {
               this.getRequestHeaders.bind(this),
               sseTimeout,
               undefined,
-              { serverName: this.serverName, userId: this.userId, transport: 'sse' },
             ) as unknown as FetchLike,
           });
 
@@ -706,11 +648,6 @@ export class MCPConnection extends EventEmitter {
               this.getRequestHeaders.bind(this),
               this.timeout,
               this.sseReadTimeout || DEFAULT_SSE_READ_TIMEOUT,
-              {
-                serverName: this.serverName,
-                userId: this.userId,
-                transport: 'streamable-http',
-              },
             ) as unknown as FetchLike,
           });
 
@@ -815,9 +752,6 @@ export class MCPConnection extends EventEmitter {
             logger.warn(
               `${this.getLogPrefix()} Rate limited (429), stopping reconnection attempts`,
             );
-            logger.debug(
-              `${this.getLogPrefix()} Rate limit block is permanent for this connection instance`,
-            );
             this.shouldStopReconnecting = true;
             return;
           }
@@ -895,9 +829,6 @@ export class MCPConnection extends EventEmitter {
         if (this.oauthRecovery) {
           MCPConnection.decrementCycleCount(this.serverName);
           this.oauthRecovery = false;
-          logger.debug(
-            `${this.getLogPrefix()} OAuth recovery: decremented cycle count after successful reconnect`,
-          );
         }
       } catch (error) {
         // Check if it's a rate limit error - stop immediately to avoid making it worse
@@ -924,9 +855,6 @@ export class MCPConnection extends EventEmitter {
           logger.warn(`${this.getLogPrefix()} OAuth authentication required`);
           this.oauthRequired = true;
           const serverUrl = this.url;
-          logger.debug(
-            `${this.getLogPrefix()} Server URL for OAuth: ${serverUrl ? sanitizeUrlForLogging(serverUrl) : 'undefined'}`,
-          );
 
           const oauthTimeout = this.options.initTimeout ?? 60000 * 2;
           /** Promise that will resolve when OAuth is handled */
@@ -1022,11 +950,6 @@ export class MCPConnection extends EventEmitter {
         }
         this.lastPingTime = Date.now();
       }
-      const method = 'method' in msg ? msg.method : undefined;
-      const id = 'id' in msg ? (msg as { id: string | number | null }).id : undefined;
-      logger.debug(
-        `${this.getLogPrefix()} Transport sending: method=${method ?? 'response'} id=${id ?? 'none'}`,
-      );
       return originalSend(msg);
     };
   }
@@ -1038,11 +961,6 @@ export class MCPConnection extends EventEmitter {
 
     const sdkHandler = this.transport.onmessage;
     this.transport.onmessage = (msg) => {
-      const method = 'method' in msg ? msg.method : undefined;
-      const id = 'id' in msg ? (msg as { id: string | number | null }).id : undefined;
-      logger.debug(
-        `${this.getLogPrefix()} Transport received: method=${method ?? 'response'} id=${id ?? 'none'}`,
-      );
       sdkHandler(msg);
     };
   }
@@ -1079,7 +997,6 @@ export class MCPConnection extends EventEmitter {
         rawMessage.startsWith(SDK_SSE_STREAM_DISCONNECTED) ||
         rawMessage.startsWith(SDK_SSE_RECONNECT_FAILED)
       ) {
-        logger.debug(`${this.getLogPrefix()} SDK SSE stream recovery in progress: ${rawMessage}`);
         return;
       }
 
@@ -1166,11 +1083,8 @@ export class MCPConnection extends EventEmitter {
   }
 
   private async closeAgents(): Promise<void> {
-    const logPrefix = this.getLogPrefix();
     const closing = this.agents.map((agent) =>
-      agent.close().catch((err: unknown) => {
-        logger.debug(`${logPrefix} Agent close error (non-fatal):`, err);
-      }),
+      agent.close().catch(() => undefined),
     );
     this.agents = [];
     await Promise.all(closing);
@@ -1259,10 +1173,6 @@ export class MCPConnection extends EventEmitter {
       }
 
       // Ping is not supported by this server, try an alternative verification
-      logger.debug(
-        `${this.getLogPrefix()} Server does not support ping method, verifying connection with capabilities`,
-      );
-
       try {
         // Get server capabilities to verify connection is truly active
         const capabilities = this.client.getServerCapabilities();
@@ -1279,9 +1189,6 @@ export class MCPConnection extends EventEmitter {
           return this.connectionState === 'connected';
         } else {
           // No capabilities to test, but we're in connected state and initialization succeeded
-          logger.debug(
-            `${this.getLogPrefix()} No capabilities to test, assuming connected based on state`,
-          );
           return this.connectionState === 'connected';
         }
       } catch (capabilityError) {
