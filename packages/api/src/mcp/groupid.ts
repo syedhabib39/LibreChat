@@ -1,5 +1,5 @@
 import mongoose from 'mongoose';
-import { createUserGroupMethods, logger } from '@librechat/data-schemas';
+import { createUserGroupMethods, logger, runAsSystem } from '@librechat/data-schemas';
 import type { IGroup, IUser } from '@librechat/data-schemas';
 
 const GROUP_ID_CACHE_MS = 30_000;
@@ -24,7 +24,14 @@ async function loadGroupIdsCsv(userId: string): Promise<string> {
     return cached.value;
   }
   try {
-    const groups = await getUserGroupMethods().findGroupsByMemberId(userId);
+    /**
+     * Group/User models use tenant isolation. If documents lack `tenantId` but ALS has a tenant,
+     * `findGroupsByMemberId` would return []. `runAsSystem` skips injection; userId is the
+     * authenticated session id (server-trusted), not client input.
+     */
+    const groups = await runAsSystem(async () =>
+      getUserGroupMethods().findGroupsByMemberId(userId),
+    );
     const value = groups.map((g: IGroup) => String(g._id)).join(',');
     groupIdCsvByUserId.set(userId, { value, cachedAt: now });
     return value;

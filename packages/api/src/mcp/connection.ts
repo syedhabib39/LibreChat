@@ -583,10 +583,24 @@ export class MCPConnection extends EventEmitter {
             },
             eventSourceInit: {
               fetch: (url, init) => {
-                /** Merge headers: SSE defaults < init headers < user headers (user wins) */
-                const fetchHeaders = new Headers(
-                  Object.assign({}, SSE_REQUEST_HEADERS, init?.headers, headers),
-                );
+                let initHeaderRecord: Record<string, string> = {};
+                if (init?.headers) {
+                  if (init.headers instanceof Headers) {
+                    initHeaderRecord = Object.fromEntries(init.headers.entries());
+                  } else if (Array.isArray(init.headers)) {
+                    initHeaderRecord = Object.fromEntries(init.headers);
+                  } else {
+                    initHeaderRecord = init.headers as Record<string, string>;
+                  }
+                }
+                const dynamicHeaders = this.getRequestHeaders() ?? {};
+                /** Defaults < transport init < config headers < setRequestHeaders (tool-call refresh) */
+                const fetchHeaders = new Headers({
+                  ...SSE_REQUEST_HEADERS,
+                  ...initHeaderRecord,
+                  ...headers,
+                  ...dynamicHeaders,
+                });
                 return undiciFetch(url, {
                   ...init,
                   redirect: 'manual',
