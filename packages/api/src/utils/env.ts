@@ -362,7 +362,7 @@ export function processMCPEnv(params: {
     });
     const processedHeaders: Record<string, string> = {};
     for (const [key, originalValue] of Object.entries(newObj.headers)) {
-      processedHeaders[key] = processSingleValue({
+      processedHeaders[key.toLowerCase()] = processSingleValue({
         user,
         body,
         dbSourced,

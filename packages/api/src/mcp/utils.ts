@@ -18,6 +18,72 @@ export function isUserSourced(config: Pick<ParsedServerConfig, 'source' | 'dbId'
   return config.source != null ? config.source === 'user' : !!config.dbId;
 }
 
+const LIBRECHAT_USER_PLACEHOLDER = /\{\{LIBRECHAT_USER_[^}]+\}\}/;
+
+/**
+ * True if the server config embeds `{{LIBRECHAT_USER_*}}` in url/headers/env/args/oauth strings.
+ * Such servers must use a per-user MCP connection — app-level pools have no user for `processMCPEnv`.
+ */
+export function configContainsLibrechatUserPlaceholders(config: {
+  url?: string;
+  headers?: Record<string, string>;
+  env?: Record<string, string>;
+  args?: string[];
+  oauth?: Record<string, boolean | string | string[] | undefined>;
+}): boolean {
+  if (config.url != null && LIBRECHAT_USER_PLACEHOLDER.test(config.url)) {
+    return true;
+  }
+  if (config.headers) {
+    for (const v of Object.values(config.headers)) {
+      if (typeof v === 'string' && LIBRECHAT_USER_PLACEHOLDER.test(v)) {
+        return true;
+      }
+    }
+  }
+  if (config.env) {
+    for (const v of Object.values(config.env)) {
+      if (typeof v === 'string' && LIBRECHAT_USER_PLACEHOLDER.test(v)) {
+        return true;
+      }
+    }
+  }
+  if (config.args) {
+    for (const arg of config.args) {
+      if (LIBRECHAT_USER_PLACEHOLDER.test(arg)) {
+        return true;
+      }
+    }
+  }
+  if (config.oauth) {
+    for (const v of Object.values(config.oauth)) {
+      if (typeof v === 'string' && LIBRECHAT_USER_PLACEHOLDER.test(v)) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+/**
+ * Merge header objects; later layers win. Keys are lowercased so `X-User-Id` and `x-user-id`
+ * do not both appear (avoids comma-joined duplicate values on the wire).
+ */
+export function mergeMcpHttpHeaders(
+  ...layers: Array<Record<string, string> | null | undefined>
+): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const layer of layers) {
+    if (layer == null) {
+      continue;
+    }
+    for (const [k, v] of Object.entries(layer)) {
+      out[k.toLowerCase()] = v;
+    }
+  }
+  return out;
+}
+
 /**
  * Allowlist-based sanitization for API responses. Only explicitly listed fields are included;
  * new fields added to ParsedServerConfig are excluded by default until allowlisted here.

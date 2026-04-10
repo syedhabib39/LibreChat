@@ -410,6 +410,18 @@ describe('ConnectionsRepository', () => {
         expect(await repository.has('customVarServer')).toBe(false);
       });
 
+      it('should NOT allow app-level connection when config uses {{LIBRECHAT_USER_*}} placeholders', async () => {
+        mockServerConfigs.librechatUserHeadersServer = {
+          type: 'sse',
+          url: 'http://example.com/sse',
+          headers: {
+            'X-User-Id': '{{LIBRECHAT_USER_ID}}',
+          },
+        };
+
+        expect(await repository.has('librechatUserHeadersServer')).toBe(false);
+      });
+
       it('should NOT allow connection when customUserVars is defined, even when startup is explicitly true', async () => {
         mockServerConfigs.customVarStartupServer = {
           type: 'stdio',

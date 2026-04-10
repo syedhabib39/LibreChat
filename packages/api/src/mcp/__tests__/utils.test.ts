@@ -1,5 +1,7 @@
 import {
   buildOAuthToolCallName,
+  configContainsLibrechatUserPlaceholders,
+  mergeMcpHttpHeaders,
   normalizeServerName,
   redactAllServerSecrets,
   redactServerSecrets,
@@ -298,5 +300,62 @@ describe('isUserSourced', () => {
 
   it('returns false when both source and dbId are absent (pre-upgrade YAML server)', () => {
     expect(isUserSourced({})).toBe(false);
+  });
+});
+
+describe('configContainsLibrechatUserPlaceholders', () => {
+  it('returns true when url contains LIBRECHAT_USER placeholder', () => {
+    expect(
+      configContainsLibrechatUserPlaceholders({
+        url: 'https://x/{{LIBRECHAT_USER_ID}}/mcp',
+      }),
+    ).toBe(true);
+  });
+
+  it('returns true for headers, env, args, oauth string fields', () => {
+    expect(
+      configContainsLibrechatUserPlaceholders({
+        headers: { 'x-user-id': '{{LIBRECHAT_USER_ID}}' },
+      }),
+    ).toBe(true);
+    expect(
+      configContainsLibrechatUserPlaceholders({
+        env: { U: '{{LIBRECHAT_USER_EMAIL}}' },
+      }),
+    ).toBe(true);
+    expect(
+      configContainsLibrechatUserPlaceholders({
+        args: ['--id', '{{LIBRECHAT_USER_ID}}'],
+      }),
+    ).toBe(true);
+    expect(
+      configContainsLibrechatUserPlaceholders({
+        oauth: { scope: 'u:{{LIBRECHAT_USER_ID}}' },
+      }),
+    ).toBe(true);
+  });
+
+  it('returns false when no LIBRECHAT_USER_* placeholders', () => {
+    expect(
+      configContainsLibrechatUserPlaceholders({
+        url: 'https://mcp.example.com',
+        headers: { Authorization: 'Bearer x' },
+      }),
+    ).toBe(false);
+  });
+});
+
+describe('mergeMcpHttpHeaders', () => {
+  it('lowercases keys and lets later layers override', () => {
+    expect(
+      mergeMcpHttpHeaders(
+        { 'X-User-Id': '1', 'Cache-Control': 'no-cache' },
+        { 'x-user-id': '2' },
+      ),
+    ).toEqual({ 'x-user-id': '2', 'cache-control': 'no-cache' });
+  });
+
+  it('skips null/undefined layers', () => {
+    expect(mergeMcpHttpHeaders(undefined, { A: 'b' }, null)).toEqual({ a: 'b' });
   });
 });

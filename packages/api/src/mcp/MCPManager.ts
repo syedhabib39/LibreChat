@@ -20,7 +20,7 @@ import { MCPConnection } from './connection';
 import { enrichUserForMcp } from '~/mcp/groupid';
 import { debugMcpHeaders } from '~/mcp/utils';
 import { processMCPEnv } from '~/utils/env';
-import { isUserSourced } from './utils';
+import { configContainsLibrechatUserPlaceholders, isUserSourced } from './utils';
 
 /**
  * Centralized manager for MCP server connections and tool execution.
@@ -60,18 +60,30 @@ export class MCPManager extends UserConnectionManager {
       serverConfig?: t.ParsedServerConfig;
     } & Omit<t.OAuthConnectionOptions, 'useOAuth' | 'user' | 'flowManager'>,
   ): Promise<MCPConnection> {
-    //the get method checks if the config is still valid as app level
+    const userId = args.user?.id;
+    if (userId) {
+      const resolvedConfig =
+        args.serverConfig ??
+        (await MCPServersRegistry.getInstance().getServerConfig(args.serverName, userId));
+      if (
+        resolvedConfig &&
+        configContainsLibrechatUserPlaceholders(resolvedConfig as t.ParsedServerConfig)
+      ) {
+        return this.getUserConnection(args as Parameters<typeof this.getUserConnection>[0]);
+      }
+    }
+
     const existingAppConnection = await this.appConnections!.get(args.serverName);
     if (existingAppConnection) {
       return existingAppConnection;
-    } else if (args.user?.id) {
-      return this.getUserConnection(args as Parameters<typeof this.getUserConnection>[0]);
-    } else {
-      throw new McpError(
-        ErrorCode.InvalidRequest,
-        `No connection found for server ${args.serverName}`,
-      );
     }
+    if (userId) {
+      return this.getUserConnection(args as Parameters<typeof this.getUserConnection>[0]);
+    }
+    throw new McpError(
+      ErrorCode.InvalidRequest,
+      `No connection found for server ${args.serverName}`,
+    );
   }
 
   /**

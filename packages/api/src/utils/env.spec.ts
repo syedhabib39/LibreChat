@@ -1069,7 +1069,7 @@ describe('processMCPEnv', () => {
       type: 'streamable-http',
       url: 'https://mcp.example.com/api',
       headers: {
-        'Content-Type': 'application/json',
+        'content-type': 'application/json',
       },
       oauth: {
         authorization_url: 'https://auth.example.com/authorize',
@@ -1136,7 +1136,7 @@ describe('processMCPEnv', () => {
       type: 'sse',
       url: 'https://mcp.example.com/sse',
       headers: {
-        'X-User-Groups': '507f1f77bcf86cd799439011,507f191e810c19729de860ea',
+        'x-user-groups': '507f1f77bcf86cd799439011,507f191e810c19729de860ea',
       },
     });
   });
@@ -1162,8 +1162,8 @@ describe('processMCPEnv', () => {
       type: 'sse',
       url: 'https://sse.example.com/us-west-1',
       headers: {
-        Authorization: 'Bearer user-specific-token',
-        'X-Region': 'us-west-1',
+        authorization: 'Bearer user-specific-token',
+        'x-region': 'us-west-1',
       },
     });
   });
@@ -1190,8 +1190,8 @@ describe('processMCPEnv', () => {
       type: 'streamable-http',
       url: 'https://api.example.com/conversations/conv-123',
       headers: {
-        'X-Parent-Message': 'parent-456',
-        'X-Message-Id': 'msg-789',
+        'x-parent-message': 'parent-456',
+        'x-message-id': 'msg-789',
       },
     });
   });
@@ -1217,8 +1217,8 @@ describe('processMCPEnv', () => {
     if (!isStreamableHTTPOptions(result)) {
       throw new Error('Expected streamable-http options');
     }
-    expect(result.headers?.['X-Conv']).toBe('${TEST_API_KEY}');
-    expect(result.headers?.['X-Parent']).toBe('${TEST_API_KEY}');
+    expect(result.headers?.['x-conv']).toBe('${TEST_API_KEY}');
+    expect(result.headers?.['x-parent']).toBe('${TEST_API_KEY}');
   });
 
   it('should not resolve env vars introduced via customUserVars in MCP headers', () => {
@@ -1236,7 +1236,7 @@ describe('processMCPEnv', () => {
     if (!isStreamableHTTPOptions(result)) {
       throw new Error('Expected streamable-http options');
     }
-    expect(result.headers?.Authorization).toBe('Bearer ${TEST_API_KEY}');
+    expect(result.headers?.authorization).toBe('Bearer ${TEST_API_KEY}');
   });
 
   it('should handle mixed placeholders in OAuth configuration', () => {
@@ -1471,9 +1471,9 @@ describe('processMCPEnv', () => {
       const result = processMCPEnv({ options });
 
       if (isStreamableHTTPOptions(result)) {
-        expect(result.headers?.['X-Timeout']).toBe('5000');
-        expect(result.headers?.['X-Retry-Count']).toBe('3');
-        expect(result.headers?.['Content-Type']).toBe('application/json');
+        expect(result.headers?.['x-timeout']).toBe('5000');
+        expect(result.headers?.['x-retry-count']).toBe('3');
+        expect(result.headers?.['content-type']).toBe('application/json');
       }
     });
 
@@ -1571,7 +1571,7 @@ describe('processMCPEnv', () => {
       const result = processMCPEnv({ options });
 
       if (isStreamableHTTPOptions(result)) {
-        expect(result.headers?.Authorization).toBe('Bearer my-secret-api-key');
+        expect(result.headers?.authorization).toBe('Bearer my-secret-api-key');
       } else {
         throw new Error('Expected streamable-http options');
       }
@@ -1591,7 +1591,7 @@ describe('processMCPEnv', () => {
       const result = processMCPEnv({ options });
 
       if (isStreamableHTTPOptions(result)) {
-        expect(result.headers?.Authorization).toBe('Basic base64encodedcreds');
+        expect(result.headers?.authorization).toBe('Basic base64encodedcreds');
       } else {
         throw new Error('Expected streamable-http options');
       }
@@ -1612,8 +1612,8 @@ describe('processMCPEnv', () => {
       const result = processMCPEnv({ options });
 
       if (isStreamableHTTPOptions(result)) {
-        expect(result.headers?.['X-Api-Key']).toBe('my-custom-api-key');
-        expect(result.headers?.Authorization).toBeUndefined();
+        expect(result.headers?.['x-api-key']).toBe('my-custom-api-key');
+        expect(result.headers?.authorization).toBeUndefined();
       } else {
         throw new Error('Expected streamable-http options');
       }
@@ -1633,7 +1633,7 @@ describe('processMCPEnv', () => {
       const result = processMCPEnv({ options });
 
       if (isStreamableHTTPOptions(result)) {
-        expect(result.headers?.['X-Api-Key']).toBe('my-api-key');
+        expect(result.headers?.['x-api-key']).toBe('my-api-key');
       } else {
         throw new Error('Expected streamable-http options');
       }
@@ -1656,7 +1656,7 @@ describe('processMCPEnv', () => {
 
       if (isStreamableHTTPOptions(result)) {
         // User-provided key should NOT be injected - placeholder remains
-        expect(result.headers?.Authorization).toBe('Bearer {{MCP_API_KEY}}');
+        expect(result.headers?.authorization).toBe('Bearer {{MCP_API_KEY}}');
       } else {
         throw new Error('Expected streamable-http options');
       }
@@ -1680,9 +1680,9 @@ describe('processMCPEnv', () => {
       const result = processMCPEnv({ options });
 
       if (isStreamableHTTPOptions(result)) {
-        expect(result.headers?.['Content-Type']).toBe('application/json');
-        expect(result.headers?.['X-Custom-Header']).toBe('custom-value');
-        expect(result.headers?.Authorization).toBe('Bearer my-api-key');
+        expect(result.headers?.['content-type']).toBe('application/json');
+        expect(result.headers?.['x-custom-header']).toBe('custom-value');
+        expect(result.headers?.authorization).toBe('Bearer my-api-key');
       } else {
         throw new Error('Expected streamable-http options');
       }
@@ -1702,7 +1702,7 @@ describe('processMCPEnv', () => {
       const result = processMCPEnv({ options });
 
       if (isStreamableHTTPOptions(result)) {
-        expect(result.headers?.Authorization).toBeUndefined();
+        expect(result.headers?.authorization).toBeUndefined();
       } else {
         throw new Error('Expected streamable-http options');
       }
@@ -1736,7 +1736,7 @@ describe('processMCPEnv', () => {
       });
 
       if (isStreamableHTTPOptions(result)) {
-        expect(result.headers?.Authorization).toBe('Bearer user-secret-key');
+        expect(result.headers?.authorization).toBe('Bearer user-secret-key');
       } else {
         throw new Error('Expected streamable-http options');
       }
@@ -1755,8 +1755,8 @@ describe('processMCPEnv', () => {
       const result = processMCPEnv({ options, dbSourced: true });
 
       if (isStreamableHTTPOptions(result)) {
-        expect(result.headers?.['X-Leaked']).toBe('${DATABASE_URL}');
-        expect(result.headers?.['X-Key']).toBe('${TEST_API_KEY}');
+        expect(result.headers?.['x-leaked']).toBe('${DATABASE_URL}');
+        expect(result.headers?.['x-key']).toBe('${TEST_API_KEY}');
       } else {
         throw new Error('Expected streamable-http options');
       }
@@ -1776,8 +1776,8 @@ describe('processMCPEnv', () => {
       const result = processMCPEnv({ options, user, dbSourced: true });
 
       if (isStreamableHTTPOptions(result)) {
-        expect(result.headers?.['X-User-Id']).toBe('{{LIBRECHAT_USER_ID}}');
-        expect(result.headers?.['X-User-Email']).toBe('{{LIBRECHAT_USER_EMAIL}}');
+        expect(result.headers?.['x-user-id']).toBe('{{LIBRECHAT_USER_ID}}');
+        expect(result.headers?.['x-user-email']).toBe('{{LIBRECHAT_USER_EMAIL}}');
       } else {
         throw new Error('Expected streamable-http options');
       }
@@ -1805,7 +1805,7 @@ describe('processMCPEnv', () => {
       const result = processMCPEnv({ options, user, dbSourced: true });
 
       if (isStreamableHTTPOptions(result)) {
-        expect(result.headers?.Authorization).toBe('Bearer {{LIBRECHAT_OPENID_ACCESS_TOKEN}}');
+        expect(result.headers?.authorization).toBe('Bearer {{LIBRECHAT_OPENID_ACCESS_TOKEN}}');
       } else {
         throw new Error('Expected streamable-http options');
       }
@@ -1828,7 +1828,7 @@ describe('processMCPEnv', () => {
       const result = processMCPEnv({ options, body, dbSourced: true });
 
       if (isStreamableHTTPOptions(result)) {
-        expect(result.headers?.['X-Conversation']).toBe('{{LIBRECHAT_BODY_CONVERSATIONID}}');
+        expect(result.headers?.['x-conversation']).toBe('{{LIBRECHAT_BODY_CONVERSATIONID}}');
       } else {
         throw new Error('Expected streamable-http options');
       }
@@ -1857,10 +1857,10 @@ describe('processMCPEnv', () => {
       });
 
       if (isStreamableHTTPOptions(result)) {
-        expect(result.headers?.Authorization).toBe('Bearer user-key-value');
-        expect(result.headers?.['X-Env-Leak']).toBe('${TEST_API_KEY}');
-        expect(result.headers?.['X-User-Id']).toBe('{{LIBRECHAT_USER_ID}}');
-        expect(result.headers?.['X-Body']).toBe('{{LIBRECHAT_BODY_CONVERSATIONID}}');
+        expect(result.headers?.authorization).toBe('Bearer user-key-value');
+        expect(result.headers?.['x-env-leak']).toBe('${TEST_API_KEY}');
+        expect(result.headers?.['x-user-id']).toBe('{{LIBRECHAT_USER_ID}}');
+        expect(result.headers?.['x-body']).toBe('{{LIBRECHAT_BODY_CONVERSATIONID}}');
         expect(result.url).toBe('${DATABASE_URL}');
       } else {
         throw new Error('Expected streamable-http options');
@@ -1887,9 +1887,9 @@ describe('processMCPEnv', () => {
       });
 
       if (isStreamableHTTPOptions(result)) {
-        expect(result.headers?.Authorization).toBe('Bearer user-key-value');
-        expect(result.headers?.['X-Env']).toBe('test-api-key-value');
-        expect(result.headers?.['X-User-Id']).toBe('user-123');
+        expect(result.headers?.authorization).toBe('Bearer user-key-value');
+        expect(result.headers?.['x-env']).toBe('test-api-key-value');
+        expect(result.headers?.['x-user-id']).toBe('user-123');
       } else {
         throw new Error('Expected streamable-http options');
       }
@@ -1936,7 +1936,7 @@ describe('processMCPEnv', () => {
       const result = processMCPEnv({ options, dbSourced: true });
 
       if (isStreamableHTTPOptions(result)) {
-        expect(result.headers?.Authorization).toBe('Bearer admin-managed-key');
+        expect(result.headers?.authorization).toBe('Bearer admin-managed-key');
       } else {
         throw new Error('Expected streamable-http options');
       }
@@ -1997,7 +1997,7 @@ describe('processMCPEnv', () => {
       const result = processMCPEnv({ options, dbSourced: true });
 
       if (isStreamableHTTPOptions(result)) {
-        expect(result.headers?.Authorization).toBe('Bearer {{MCP_API_KEY}}');
+        expect(result.headers?.authorization).toBe('Bearer {{MCP_API_KEY}}');
       } else {
         throw new Error('Expected streamable-http options');
       }
@@ -2041,8 +2041,8 @@ describe('processMCPEnv', () => {
       const result = processMCPEnv({ options, dbSourced: true, customUserVars: {} });
 
       if (isStreamableHTTPOptions(result)) {
-        expect(result.headers?.['X-Key']).toBe('${TEST_API_KEY}');
-        expect(result.headers?.['X-Custom']).toBe('{{MCP_API_KEY}}');
+        expect(result.headers?.['x-key']).toBe('${TEST_API_KEY}');
+        expect(result.headers?.['x-custom']).toBe('{{MCP_API_KEY}}');
       } else {
         throw new Error('Expected streamable-http options');
       }
@@ -2062,8 +2062,8 @@ describe('processMCPEnv', () => {
       const result = processMCPEnv({ options, user });
 
       if (isStreamableHTTPOptions(result)) {
-        expect(result.headers?.['X-Env']).toBe('test-api-key-value');
-        expect(result.headers?.['X-User']).toBe('user-abc');
+        expect(result.headers?.['x-env']).toBe('test-api-key-value');
+        expect(result.headers?.['x-user']).toBe('user-abc');
       } else {
         throw new Error('Expected streamable-http options');
       }

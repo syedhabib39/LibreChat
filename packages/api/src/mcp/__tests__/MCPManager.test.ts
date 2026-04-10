@@ -970,4 +970,35 @@ describe('MCPManager', () => {
       );
     });
   });
+
+  describe('getConnection', () => {
+    it('uses user connection when config contains {{LIBRECHAT_USER_*}} even if app pool has a connection', async () => {
+      const appLevelConn = { tag: 'app' } as unknown as MCPConnection;
+      const userConn = { tag: 'user' } as unknown as MCPConnection;
+      const appGet = jest.fn().mockResolvedValue(appLevelConn);
+      mockAppConnections({ get: appGet });
+
+      (mockRegistryInstance.getServerConfig as jest.Mock).mockResolvedValue({
+        type: 'sse',
+        url: 'http://example.com/sse',
+        headers: { 'x-user-id': '{{LIBRECHAT_USER_ID}}' },
+      });
+
+      const manager = await MCPManager.createInstance(newMCPServersConfig('dbaas'));
+      const spy = jest.spyOn(manager, 'getUserConnection').mockResolvedValue(userConn);
+
+      const result = await manager.getConnection({
+        serverName: 'dbaas',
+        user: { id: userId } as IUser,
+      });
+
+      expect(result).toBe(userConn);
+      expect(appGet).not.toHaveBeenCalled();
+      expect(spy).toHaveBeenCalledWith(
+        expect.objectContaining({ serverName: 'dbaas', user: { id: userId } }),
+      );
+
+      spy.mockRestore();
+    });
+  });
 });

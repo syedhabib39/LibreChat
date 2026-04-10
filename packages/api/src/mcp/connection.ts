@@ -20,7 +20,12 @@ import type { MCPOAuthTokens } from './oauth/types';
 import type * as t from './types';
 import { createSSRFSafeUndiciConnect, resolveHostnameSSRF } from '~/auth';
 import { runOutsideTracing } from '~/utils/tracing';
-import { debugMcpFetchMerge, debugMcpHeaders, sanitizeUrlForLogging } from './utils';
+import {
+  debugMcpFetchMerge,
+  debugMcpHeaders,
+  mergeMcpHttpHeaders,
+  sanitizeUrlForLogging,
+} from './utils';
 import { withTimeout } from '~/utils/promise';
 import { mcpConfig } from './mcpConfig';
 
@@ -518,10 +523,7 @@ export class MCPConnection extends EventEmitter {
       return undiciFetch(input, {
         ...init,
         redirect: 'manual',
-        headers: {
-          ...initHeaders,
-          ...requestHeaders,
-        },
+        headers: mergeMcpHttpHeaders(initHeaders, requestHeaders),
         dispatcher,
       });
     };
@@ -620,8 +622,8 @@ export class MCPConnection extends EventEmitter {
           this.agents.push(sseAgent);
           const transport = new SSEClientTransport(url, {
             requestInit: {
-              /** User/OAuth headers override SSE defaults */
-              headers: { ...SSE_REQUEST_HEADERS, ...headers },
+              /** User/OAuth headers override SSE defaults; keys lowercased to avoid duplicate casing */
+              headers: mergeMcpHttpHeaders(SSE_REQUEST_HEADERS, headers),
               signal: abortController.signal,
             },
             eventSourceInit: {
@@ -638,18 +640,18 @@ export class MCPConnection extends EventEmitter {
                 }
                 const dynamicHeaders = this.getRequestHeaders() ?? {};
                 /** Defaults < transport init < config headers < setRequestHeaders (tool-call refresh) */
-                const mergedObject = {
-                  ...SSE_REQUEST_HEADERS,
-                  ...initHeaderRecord,
-                  ...headers,
-                  ...dynamicHeaders,
-                };
+                const mergedObject = mergeMcpHttpHeaders(
+                  SSE_REQUEST_HEADERS,
+                  initHeaderRecord,
+                  headers,
+                  dynamicHeaders,
+                );
                 debugMcpFetchMerge(
                   'sse EventSource GET',
                   { serverName: this.serverName, userId: this.userId },
                   (init?.method ?? 'GET').toUpperCase(),
                   url,
-                  { ...SSE_REQUEST_HEADERS, ...initHeaderRecord, ...headers },
+                  mergeMcpHttpHeaders(SSE_REQUEST_HEADERS, initHeaderRecord, headers),
                   dynamicHeaders,
                 );
                 const fetchHeaders = new Headers(mergedObject);
@@ -697,7 +699,7 @@ export class MCPConnection extends EventEmitter {
 
           const transport = new StreamableHTTPClientTransport(url, {
             requestInit: {
-              headers,
+              headers: mergeMcpHttpHeaders(headers),
               signal: abortController.signal,
             },
             fetch: this.createFetchFunction(
