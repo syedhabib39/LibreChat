@@ -1,5 +1,6 @@
 import { extractEnvVariable } from 'librechat-data-provider';
 import type { MCPOptions } from 'librechat-data-provider';
+import { logger } from '@librechat/data-schemas';
 import type { IUser } from '@librechat/data-schemas';
 import type { RequestBody } from '~/types';
 import { debugMcpHeaders } from '~/mcp/utils';
@@ -266,36 +267,7 @@ function processSingleValue({
   return value;
 }
 
-const MCP_DEFAULT_USER_GROUPS_HEADER = 'x-user-groups';
-
-/**
- * Sets `x-user-groups` on URL-based MCP options when `user.groupId` is a non-empty string
- * (comma-separated Group `_id` values from MCP user enrichment). Does not require librechat.yaml;
- * overwrites any configured value for that header when enrichment produced a CSV.
- */
-function mergeDefaultMcpUserGroupsHeader(
-  newObj: MCPOptions,
-  user?: Partial<IUser>,
-): void {
-  if (!user?.id) {
-    return;
-  }
-  const raw =
-    typeof user.groupId === 'string' && user.groupId.trim().length > 0
-      ? user.groupId.trim()
-      : '';
-  if (!raw) {
-    return;
-  }
-  if (!('url' in newObj)) {
-    return;
-  }
-  const o = newObj as { headers?: Record<string, string> };
-  if (!o.headers) {
-    o.headers = {};
-  }
-  o.headers[MCP_DEFAULT_USER_GROUPS_HEADER] = raw;
-}
+const LIBRECHAT_USER_GROUPID_PLACEHOLDER = '{{LIBRECHAT_USER_GROUPID}}';
 
 /**
  * Recursively processes an object to replace environment variables in string values
@@ -403,6 +375,38 @@ export function processMCPEnv(params: {
       });
     }
     newObj.headers = processedHeaders;
+
+    if (user?.id) {
+      for (const [hKey, hVal] of Object.entries(processedHeaders)) {
+        if (hVal.includes(LIBRECHAT_USER_GROUPID_PLACEHOLDER)) {
+          logger.warn(
+            '[MCP][headers] processMCPEnv: header value still contains literal LIBRECHAT_USER_GROUPID (needs per-user MCP + enrichUserForMcp + yaml placeholder)',
+            {
+              userId: user.id,
+              headerName: hKey,
+              hasGroupIdOnUser:
+                typeof user.groupId === 'string' && user.groupId.trim().length > 0,
+            },
+          );
+        }
+      }
+      const groupsCsv = processedHeaders['x-user-groups'];
+      if (
+        groupsCsv !== undefined &&
+        groupsCsv.length > 0 &&
+        !groupsCsv.includes(LIBRECHAT_USER_GROUPID_PLACEHOLDER)
+      ) {
+        logger.debug('[MCP][headers] processMCPEnv: x-user-groups resolved from librechat.yaml', {
+          userId: user.id,
+          valueLen: groupsCsv.length,
+        });
+      }
+    }
+
+    debugMcpHeaders('processMCPEnv:after', processedHeaders, {
+      dbSourced,
+      userId: user?.id ?? null,
+    });
   }
 
   // Process URL if it exists (for WebSocket, SSE, StreamableHTTP types)
@@ -435,14 +439,6 @@ export function processMCPEnv(params: {
       }
     }
     newObj.oauth = processedOAuth;
-  }
-
-  mergeDefaultMcpUserGroupsHeader(newObj, user);
-  if ('headers' in newObj && newObj.headers) {
-    debugMcpHeaders('processMCPEnv:after', newObj.headers as Record<string, string>, {
-      dbSourced,
-      userId: user?.id ?? null,
-    });
   }
 
   return newObj;
