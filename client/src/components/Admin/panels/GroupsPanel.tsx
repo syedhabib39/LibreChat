@@ -93,6 +93,7 @@ function GroupList({
             <thead className="border-b border-border-light bg-surface-secondary">
               <tr>
                 <th className="px-4 py-2 font-medium text-text-secondary">Name</th>
+                <th className="px-4 py-2 font-medium text-text-secondary">Source</th>
                 <th className="px-4 py-2 font-medium text-text-secondary">Description</th>
                 <th className="px-4 py-2 font-medium text-text-secondary">Members</th>
                 <th className="px-4 py-2 font-medium text-text-secondary">Status</th>
@@ -115,6 +116,15 @@ function GroupList({
                   aria-label={`View group ${group.name}`}
                 >
                   <td className="px-4 py-2 font-medium text-text-primary">{group.name}</td>
+                  <td className="px-4 py-2">
+                    <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${
+                      group.source === 'entra'
+                        ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200'
+                        : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400'
+                    }`}>
+                      {group.source === 'entra' ? 'Entra' : 'Local'}
+                    </span>
+                  </td>
                   <td className="px-4 py-2 text-text-secondary">{group.description || '—'}</td>
                   <td className="px-4 py-2 text-text-secondary">{group.memberCount}</td>
                   <td className="px-4 py-2">
@@ -144,6 +154,8 @@ function GroupList({
 function CreateGroupForm({ onClose }: { onClose: () => void }) {
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
+  const [source, setSource] = useState<'local' | 'entra'>('local');
+  const [idOnTheSource, setIdOnTheSource] = useState('');
   const [formError, setFormError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const { showToast } = useToastContext();
@@ -152,10 +164,22 @@ function CreateGroupForm({ onClose }: { onClose: () => void }) {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim()) return;
+    if (source === 'entra' && !idOnTheSource.trim()) {
+      setFieldErrors({ idOnTheSource: 'Entra ID Object ID is required for Entra groups' });
+      return;
+    }
     setFormError(null);
     setFieldErrors({});
+    const body: Record<string, unknown> = {
+      name: name.trim(),
+      description: description.trim() || undefined,
+      source,
+    };
+    if (source === 'entra' && idOnTheSource.trim()) {
+      body.idOnTheSource = idOnTheSource.trim();
+    }
     createGroup.mutate(
-      { name: name.trim(), description: description.trim() || undefined },
+      body as { name: string; description?: string },
       {
         onSuccess: () => {
           showToast({ message: 'Group created', status: 'success' });
@@ -214,6 +238,42 @@ function CreateGroupForm({ onClose }: { onClose: () => void }) {
           <p className="mt-1 text-xs text-red-500" role="alert">{fieldErrors.description}</p>
         )}
       </div>
+      <div>
+        <Label htmlFor="group-source" className="mb-1 block text-sm text-text-primary">
+          Source
+        </Label>
+        <select
+          id="group-source"
+          value={source}
+          onChange={(e) => setSource(e.target.value as 'local' | 'entra')}
+          className="w-full rounded-md border border-border-light bg-surface-primary px-3 py-2 text-sm text-text-primary"
+          aria-label="Group source"
+        >
+          <option value="local">Local</option>
+          <option value="entra">Entra ID (Azure AD)</option>
+        </select>
+      </div>
+      {source === 'entra' && (
+        <div>
+          <Label htmlFor="group-entra-id" className="mb-1 block text-sm text-text-primary">
+            Entra ID Object ID
+          </Label>
+          <Input
+            id="group-entra-id"
+            value={idOnTheSource}
+            onChange={(e) => setIdOnTheSource(e.target.value)}
+            placeholder="e.g. fd57e6ef-a334-486a-8062-57a80b254bb9"
+            aria-label="Entra ID Object ID"
+            aria-invalid={!!fieldErrors.idOnTheSource}
+          />
+          <p className="mt-1 text-xs text-text-secondary">
+            The Azure AD group Object ID from Entra ID portal
+          </p>
+          {fieldErrors.idOnTheSource && (
+            <p className="mt-1 text-xs text-red-500" role="alert">{fieldErrors.idOnTheSource}</p>
+          )}
+        </div>
+      )}
       <div className="flex items-center gap-2">
         <Button type="submit" size="sm" disabled={createGroup.isLoading} aria-label="Save group">
           {createGroup.isLoading ? 'Creating…' : 'Create'}
@@ -445,6 +505,20 @@ function GroupDetail({ groupId, onBack }: { groupId: string; onBack: () => void 
               </div>
             </div>
             <p className="text-sm text-text-secondary">{group.description || 'No description'}</p>
+            {group.source && (
+              <div className="flex items-center gap-2 text-xs text-text-secondary">
+                <span className={`inline-flex rounded-full px-2 py-0.5 font-medium ${
+                  group.source === 'entra'
+                    ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200'
+                    : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400'
+                }`}>
+                  {group.source === 'entra' ? 'Entra ID' : 'Local'}
+                </span>
+                {group.source === 'entra' && 'idOnTheSource' in (group as object) && (
+                  <span>ID: {String((group as unknown as Record<string, string>).idOnTheSource)}</span>
+                )}
+              </div>
+            )}
             <p className="text-xs text-text-secondary">{group.memberCount} members</p>
           </>
         )}
