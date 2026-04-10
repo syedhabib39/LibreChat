@@ -5,9 +5,10 @@
 # (Images built on Apple Silicon without --platform are often arm64 → kubelet exit 255 on amd64 workers.)
 #
 # Usage:
-#   ./scripts/push-librechat-ecr.sh <tag>
+#   ./scripts/push-librechat-ecr.sh [--no-cache] <tag>
 # Example:
 #   ./scripts/push-librechat-ecr.sh admin-ui
+#   ./scripts/push-librechat-ecr.sh --no-cache admin-ui   # fresh build, no BuildKit cache
 #
 # Optional environment overrides:
 #   AWS_REGION         (default: us-east-1)
@@ -18,13 +19,35 @@
 #   PLATFORMS          (default: linux/amd64) — comma-separated for multi-arch, e.g. linux/amd64,linux/arm64
 #   BUILDX_BUILDER     (optional) — docker buildx --builder name
 #   VERIFY_MANIFEST=1  — after push, run imagetools inspect to print platform list
+#   NO_CACHE=1         — same as --no-cache (no BuildKit layer cache)
 
 set -euo pipefail
 
-TAG="${1:-}"
+NO_CACHE_BUILD=0
+if [[ "${NO_CACHE:-}" == "1" ]]; then
+  NO_CACHE_BUILD=1
+fi
+
+TAG=""
+for arg in "$@"; do
+  case "$arg" in
+    --no-cache)
+      NO_CACHE_BUILD=1
+      ;;
+    *)
+      if [[ -n "$TAG" ]]; then
+        echo "error: unexpected extra argument: $arg (only one image tag allowed)" >&2
+        exit 1
+      fi
+      TAG="$arg"
+      ;;
+  esac
+done
+
 if [[ -z "$TAG" ]]; then
-  echo "Usage: $0 <image-tag>" >&2
+  echo "Usage: $0 [--no-cache] <image-tag>" >&2
   echo "Example: $0 admin-ui" >&2
+  echo "         $0 --no-cache admin-ui" >&2
   exit 1
 fi
 
@@ -55,6 +78,11 @@ echo "Tag:            ${TAG}"
 echo "Platforms:      ${PLATFORMS}"
 echo "Build context:  ${REPO_ROOT}"
 echo "Dockerfile:     ${DOCKERFILE}"
+if [[ "$NO_CACHE_BUILD" -eq 1 ]]; then
+  echo "Docker cache:     disabled (--no-cache)"
+else
+  echo "Docker cache:     enabled (default)"
+fi
 echo
 
 if ! docker buildx version >/dev/null 2>&1; then
@@ -74,10 +102,16 @@ else
 fi
 
 echo "Building and pushing (${PLATFORMS})..."
+BUILDX_EXTRA=()
+if [[ "$NO_CACHE_BUILD" -eq 1 ]]; then
+  BUILDX_EXTRA+=(--no-cache)
+fi
+
 docker "${BUILDX_ARGS[@]}" \
   --platform "$PLATFORMS" \
   -f "$DOCKERFILE" \
   -t "${IMAGE_URI}:${TAG}" \
+  "${BUILDX_EXTRA[@]}" \
   --push \
   .
 
