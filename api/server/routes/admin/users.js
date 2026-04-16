@@ -17,12 +17,14 @@ const handlers = createAdminUsersHandlers({
   deleteUserById: db.deleteUserById,
   deleteConfig: db.deleteConfig,
   deleteAclEntries: db.deleteAclEntries,
+  getAdminUsersStats: db.getAdminUsersStats,
 });
 
 router.use(requireJwtAuth, requireAdminAccess);
 
 router.get('/', requireReadUsers, handlers.listUsers);
 router.get('/search', requireReadUsers, handlers.searchUsers);
+router.get('/stats', requireReadUsers, handlers.getUsersStats);
 // router.delete('/:id', requireManageUsers, handlers.deleteUser);
 
 module.exports = router;
