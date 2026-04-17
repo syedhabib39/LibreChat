@@ -551,18 +551,6 @@ describe('bedrockInputParser', () => {
       };
       const result = bedrockInputParser.parse(input) as Record<string, unknown>;
       const additionalFields = result.additionalModelRequestFields as Record<string, unknown>;
-      expect(additionalFields.thinking).toEqual({ type: 'adaptive' });
-      expect(additionalFields.output_config).toEqual({ effort: 'xhigh' });
-      expect(additionalFields.effort).toBeUndefined();
-    });
-
-    test('should pass xhigh effort via output_config for adaptive models (Opus 4.7)', () => {
-      const input = {
-        model: 'anthropic.claude-opus-4-7',
-        effort: 'xhigh',
-      };
-      const result = bedrockInputParser.parse(input) as Record<string, unknown>;
-      const additionalFields = result.additionalModelRequestFields as Record<string, unknown>;
       expect(additionalFields.thinking).toEqual({ type: 'adaptive', display: 'summarized' });
       expect(additionalFields.output_config).toEqual({ effort: 'xhigh' });
       expect(additionalFields.effort).toBeUndefined();
