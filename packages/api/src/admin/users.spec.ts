@@ -58,7 +58,6 @@ function createDeps(overrides: Partial<AdminUsersDeps> = {}): AdminUsersDeps {
       .mockResolvedValue({ deletedCount: 1, message: 'User was deleted successfully.' }),
     deleteConfig: jest.fn().mockResolvedValue(null),
     deleteAclEntries: jest.fn().mockResolvedValue(undefined),
-    getAdminUsersStats: jest.fn().mockResolvedValue([]),
     ...overrides,
   };
 }

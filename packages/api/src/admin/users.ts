@@ -6,7 +6,6 @@ import type {
   IConfig,
   AdminUserListItem,
   AdminUserSearchResult,
-  AdminUsersStatsResponse,
   UserDeleteResult,
 } from '@librechat/data-schemas';
 import type { FilterQuery } from 'mongoose';
@@ -17,31 +16,6 @@ import { parsePagination } from './pagination';
 const MAX_SEARCH_LENGTH = 200;
 
 const USER_LIST_FIELDS = '_id name username email avatar role provider createdAt updatedAt';
-
-function firstQueryString(value: unknown): string | undefined {
-  if (typeof value === 'string') {
-    return value;
-  }
-  if (Array.isArray(value) && typeof value[0] === 'string') {
-    return value[0];
-  }
-  return undefined;
-}
-
-function parseIsoDateQueryValue(raw: string | undefined): Date | undefined | 'invalid' {
-  if (raw == null) {
-    return undefined;
-  }
-  const trimmed = raw.trim();
-  if (trimmed.length === 0) {
-    return undefined;
-  }
-  const parsed = new Date(trimmed);
-  if (Number.isNaN(parsed.getTime())) {
-    return 'invalid';
-  }
-  return parsed;
-}
 
 export interface AdminUsersDeps {
   findUsers: (
@@ -66,21 +40,10 @@ export interface AdminUsersDeps {
     principalType: PrincipalType;
     principalId: string | Types.ObjectId;
   }) => Promise<void>;
-  getAdminUsersStats: (resourceCreatedAtRange?: {
-    $gte?: Date;
-    $lte?: Date;
-  }) => Promise<AdminUsersStatsResponse['stats']>;
 }
 
 export function createAdminUsersHandlers(deps: AdminUsersDeps) {
-  const {
-    findUsers,
-    countUsers,
-    deleteUserById,
-    deleteConfig,
-    deleteAclEntries,
-    getAdminUsersStats,
-  } = deps;
+  const { findUsers, countUsers, deleteUserById, deleteConfig, deleteAclEntries } = deps;
 
   async function listUsersHandler(req: ServerRequest, res: Response) {
     try {
@@ -158,53 +121,6 @@ export function createAdminUsersHandlers(deps: AdminUsersDeps) {
     }
   }
 
-  async function getUsersStatsHandler(req: ServerRequest, res: Response) {
-    try {
-      const startRaw = firstQueryString(req.query.startDate);
-      const endRaw = firstQueryString(req.query.endDate);
-      const startParsed = parseIsoDateQueryValue(startRaw);
-      const endParsed = parseIsoDateQueryValue(endRaw);
-
-      if (startParsed === 'invalid') {
-        return res
-          .status(400)
-          .json({ error: 'Invalid startDate: expected a valid ISO 8601 datetime string' });
-      }
-      if (endParsed === 'invalid') {
-        return res
-          .status(400)
-          .json({ error: 'Invalid endDate: expected a valid ISO 8601 datetime string' });
-      }
-
-      if (startParsed && endParsed && startParsed.getTime() > endParsed.getTime()) {
-        return res.status(400).json({ error: 'startDate must be before or equal to endDate' });
-      }
-
-      const resourceCreatedAtRange =
-        startParsed != null || endParsed != null
-          ? {
-              ...(startParsed != null ? { $gte: startParsed } : {}),
-              ...(endParsed != null ? { $lte: endParsed } : {}),
-            }
-          : undefined;
-
-      const stats = await getAdminUsersStats(resourceCreatedAtRange);
-
-      const body: AdminUsersStatsResponse = {
-        stats,
-        filters: {
-          ...(startParsed != null ? { startDate: startParsed.toISOString() } : {}),
-          ...(endParsed != null ? { endDate: endParsed.toISOString() } : {}),
-        },
-      };
-
-      return res.status(200).json(body);
-    } catch (error) {
-      logger.error('[adminUsers] getUsersStats error:', error);
-      return res.status(500).json({ error: 'Failed to load user stats' });
-    }
-  }
-
   async function deleteUserHandler(req: ServerRequest, res: Response) {
     try {
       const { id } = req.params as { id: string };
@@ -263,7 +179,6 @@ export function createAdminUsersHandlers(deps: AdminUsersDeps) {
   return {
     listUsers: listUsersHandler,
     searchUsers: searchUsersHandler,
-    getUsersStats: getUsersStatsHandler,
     deleteUser: deleteUserHandler,
   };
 }

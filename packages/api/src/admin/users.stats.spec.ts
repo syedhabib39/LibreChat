@@ -1,8 +1,8 @@
 import { Types } from 'mongoose';
 import type { ServerRequest } from '~/types/http';
 import type { Response } from 'express';
-import type { AdminUsersDeps } from './users';
-import { createAdminUsersHandlers } from './users';
+import type { AdminUserStatsDeps } from './user.stats';
+import { createAdminUserStatsHandlers } from './user.stats';
 
 jest.mock('@librechat/data-schemas', () => ({
   ...jest.requireActual('@librechat/data-schemas'),
@@ -30,28 +30,21 @@ function createReqRes(
   return { req, res, status, json };
 }
 
-function createDeps(overrides: Partial<AdminUsersDeps> = {}): AdminUsersDeps {
+function createStatsDeps(overrides: Partial<AdminUserStatsDeps> = {}): AdminUserStatsDeps {
   return {
-    findUsers: jest.fn().mockResolvedValue([]),
-    countUsers: jest.fn().mockResolvedValue(0),
-    deleteUserById: jest
-      .fn()
-      .mockResolvedValue({ deletedCount: 1, message: 'User was deleted successfully.' }),
-    deleteConfig: jest.fn().mockResolvedValue(null),
-    deleteAclEntries: jest.fn().mockResolvedValue(undefined),
     getAdminUsersStats: jest.fn().mockResolvedValue([]),
     ...overrides,
   };
 }
 
-describe('createAdminUsersHandlers — getUsersStats', () => {
+describe('createAdminUserStatsHandlers', () => {
   it('returns stats and calls getAdminUsersStats with no range when no query dates', async () => {
     const statsRows = [
       { userId: 'u1', name: 'A', email: 'a@x.com', conversationsCount: 1, messagesCount: 2 },
     ];
     const getAdminUsersStats = jest.fn().mockResolvedValue(statsRows);
-    const deps = createDeps({ getAdminUsersStats });
-    const handlers = createAdminUsersHandlers(deps);
+    const deps = createStatsDeps({ getAdminUsersStats });
+    const handlers = createAdminUserStatsHandlers(deps);
     const { req, res, status, json } = createReqRes();
 
     await handlers.getUsersStats(req, res);
@@ -63,8 +56,8 @@ describe('createAdminUsersHandlers — getUsersStats', () => {
 
   it('passes $gte and $lte when both dates are valid', async () => {
     const getAdminUsersStats = jest.fn().mockResolvedValue([]);
-    const deps = createDeps({ getAdminUsersStats });
-    const handlers = createAdminUsersHandlers(deps);
+    const deps = createStatsDeps({ getAdminUsersStats });
+    const handlers = createAdminUserStatsHandlers(deps);
     const start = '2024-01-01T00:00:00.000Z';
     const end = '2024-12-31T23:59:59.000Z';
     const { req, res } = createReqRes({ query: { startDate: start, endDate: end } });
@@ -79,8 +72,8 @@ describe('createAdminUsersHandlers — getUsersStats', () => {
 
   it('passes only $gte when startDate is provided', async () => {
     const getAdminUsersStats = jest.fn().mockResolvedValue([]);
-    const deps = createDeps({ getAdminUsersStats });
-    const handlers = createAdminUsersHandlers(deps);
+    const deps = createStatsDeps({ getAdminUsersStats });
+    const handlers = createAdminUserStatsHandlers(deps);
     const start = '2024-03-01T12:00:00.000Z';
     const { req, res } = createReqRes({ query: { startDate: start } });
 
@@ -91,8 +84,8 @@ describe('createAdminUsersHandlers — getUsersStats', () => {
 
   it('passes only $lte when endDate is provided', async () => {
     const getAdminUsersStats = jest.fn().mockResolvedValue([]);
-    const deps = createDeps({ getAdminUsersStats });
-    const handlers = createAdminUsersHandlers(deps);
+    const deps = createStatsDeps({ getAdminUsersStats });
+    const handlers = createAdminUserStatsHandlers(deps);
     const end = '2024-06-15T00:00:00.000Z';
     const { req, res } = createReqRes({ query: { endDate: end } });
 
@@ -103,8 +96,8 @@ describe('createAdminUsersHandlers — getUsersStats', () => {
 
   it('returns 400 for invalid startDate', async () => {
     const getAdminUsersStats = jest.fn();
-    const deps = createDeps({ getAdminUsersStats });
-    const handlers = createAdminUsersHandlers(deps);
+    const deps = createStatsDeps({ getAdminUsersStats });
+    const handlers = createAdminUserStatsHandlers(deps);
     const { req, res, status } = createReqRes({ query: { startDate: 'not-a-date' } });
 
     await handlers.getUsersStats(req, res);
@@ -115,8 +108,8 @@ describe('createAdminUsersHandlers — getUsersStats', () => {
 
   it('returns 400 for invalid endDate', async () => {
     const getAdminUsersStats = jest.fn();
-    const deps = createDeps({ getAdminUsersStats });
-    const handlers = createAdminUsersHandlers(deps);
+    const deps = createStatsDeps({ getAdminUsersStats });
+    const handlers = createAdminUserStatsHandlers(deps);
     const { req, res, status } = createReqRes({ query: { endDate: 'invalid' } });
 
     await handlers.getUsersStats(req, res);
@@ -126,8 +119,8 @@ describe('createAdminUsersHandlers — getUsersStats', () => {
   });
 
   it('returns 400 when startDate is after endDate', async () => {
-    const deps = createDeps();
-    const handlers = createAdminUsersHandlers(deps);
+    const deps = createStatsDeps();
+    const handlers = createAdminUserStatsHandlers(deps);
     const { req, res, status } = createReqRes({
       query: { startDate: '2025-06-01T00:00:00.000Z', endDate: '2025-01-01T00:00:00.000Z' },
     });

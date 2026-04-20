@@ -1,5 +1,5 @@
 const express = require('express');
-const { createAdminUsersHandlers } = require('@librechat/api');
+const { createAdminUsersHandlers, createAdminUserStatsHandlers } = require('@librechat/api');
 const { SystemCapabilities } = require('@librechat/data-schemas');
 const { requireCapability } = require('~/server/middleware/roles/capabilities');
 const { requireJwtAuth } = require('~/server/middleware');
@@ -17,6 +17,9 @@ const handlers = createAdminUsersHandlers({
   deleteUserById: db.deleteUserById,
   deleteConfig: db.deleteConfig,
   deleteAclEntries: db.deleteAclEntries,
+});
+
+const statsHandlers = createAdminUserStatsHandlers({
   getAdminUsersStats: db.getAdminUsersStats,
 });
 
@@ -24,7 +27,7 @@ router.use(requireJwtAuth, requireAdminAccess);
 
 router.get('/', requireReadUsers, handlers.listUsers);
 router.get('/search', requireReadUsers, handlers.searchUsers);
-router.get('/stats', requireReadUsers, handlers.getUsersStats);
+router.get('/stats', requireReadUsers, statsHandlers.getUsersStats);
 // router.delete('/:id', requireManageUsers, handlers.deleteUser);
 
 module.exports = router;
