@@ -19,7 +19,7 @@ import { createPluginAuthMethods, type PluginAuthMethods } from './pluginAuth';
 import { createAccessRoleMethods, type AccessRoleMethods } from './accessRole';
 import { createUserGroupMethods, type UserGroupMethods } from './userGroup';
 import { createUserStatsMethods, type UserStatsMethods } from './userStats';
-import { createAclEntryMethods, type AclEntryMethods } from './aclEntry';
+import { createAclEntryMethods, permissionBitSupersets, type AclEntryMethods } from './aclEntry';
 import { createSystemGrantMethods, type SystemGrantMethods } from './systemGrant';
 import { createShareMethods, type ShareMethods } from './share';
 /* Tier 1 — Simple CRUD */
@@ -53,6 +53,7 @@ import { createConfigMethods, type ConfigMethods } from './config';
 
 export { RoleConflictError, DEFAULT_REFRESH_TOKEN_EXPIRY, DEFAULT_SESSION_EXPIRY };
 export { tokenValues, cacheTokenValues, premiumTokenValues, defaultRate };
+export { permissionBitSupersets };
 
 export type AllMethods = UserMethods &
   UserStatsMethods &
