@@ -16,14 +16,20 @@ function logApiResponse(req, res, next) {
   res.on('finish', () => {
     const ms = Date.now() - start;
     const path = req.originalUrl || req.path || '';
-    const line = `${req.method} ${path} ${res.statusCode} ${ms}ms`;
-    logger.info(line, {
+    const { statusCode } = res;
+    const line = `${req.method} ${path} ${statusCode} ${ms}ms`;
+    const meta = {
       msg: 'http_request',
       method: req.method,
       path,
-      status: res.statusCode,
+      status: statusCode,
       ms,
-    });
+    };
+    if (statusCode >= 400) {
+      logger.error(line, meta);
+    } else {
+      logger.info(line, meta);
+    }
   });
   next();
 }
