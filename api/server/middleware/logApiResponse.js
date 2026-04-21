@@ -25,10 +25,16 @@ function logApiResponse(req, res, next) {
       status: statusCode,
       ms,
     };
-    if (statusCode >= 400) {
+    if (statusCode >= 500) {
       logger.error(line, meta);
+    } else if (statusCode >= 400) {
+      logger.warn(line, meta);
     } else {
-      logger.info(line, meta);
+      if (statusCode > 300) {
+        logger.info(line, meta);
+      } else {
+        logger.info(line, meta);
+      }
     }
   });
   next();
