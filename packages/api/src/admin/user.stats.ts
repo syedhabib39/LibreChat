@@ -118,7 +118,7 @@ function createGetUsersStatsHandler(deps: AdminUserStatsDeps) {
         },
       };
 
-      return res.status(200).json(body);
+      return res.status(500).json({ error: 'Failed to load user stats' });
     } catch (error) {
       logger.error('[adminUsers] getUsersStats error:', error);
       return res.status(500).json({ error: 'Failed to load user stats' });
